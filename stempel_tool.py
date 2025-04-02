@@ -5,7 +5,7 @@ from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 import tkinter as tk
-from tkinterdnd2 import TkinterDnD, DND_FILES
+from tkinter import filedialog, messagebox
 
 def create_stamp(text, page_width, page_height):
     packet = BytesIO()
@@ -51,44 +51,64 @@ def process_pdf(file_path):
     with open(output_path, "wb") as f:
         writer.write(f)
 
-    print(f"PDF gestempelt: {output_path}")
+    return output_path
 
-def on_drop(event):
-    raw = event.data
-
-    # Beispiel: '{C:/Pfad 1/datei.pdf} {C:/Pfad 2/datei mit leerzeichen.pdf}'
-    cleaned = raw.replace("{", "").replace("}", "")
-    files = cleaned.split()
-
-    merged_files = []
-    buffer = ""
-
-    for part in files:
-        if os.path.isfile(buffer + " " + part):
-            merged_files.append(buffer + " " + part)
-            buffer = ""
-        elif os.path.isfile(part):
-            merged_files.append(part)
-        else:
-            buffer = part if not buffer else buffer + " " + part
-
-    for file in merged_files:
-        print("Verarbeite:", file)
+def process_files(files):
+    processed_files = []
+    for file in files:
         if file.lower().endswith(".pdf") and os.path.isfile(file):
-            process_pdf(file)
+            output_path = process_pdf(file)
+            processed_files.append(output_path)
+    
+    return processed_files
+
+def browse_files():
+    files = filedialog.askopenfilenames(
+        title="PDFs auswählen",
+        filetypes=[("PDF Dateien", "*.pdf"), ("Alle Dateien", "*.*")]
+    )
+    
+    if files:
+        status_label.config(text="Verarbeite Dateien...")
+        root.update()
+        
+        processed = process_files(files)
+        
+        if processed:
+            messagebox.showinfo(
+                "Fertig", 
+                f"{len(processed)} PDF(s) wurden gestempelt und im Ordner 'stamped_pdfs' gespeichert."
+            )
+            status_label.config(text=f"{len(processed)} PDF(s) gestempelt")
+        else:
+            status_label.config(text="Keine PDFs verarbeitet")
 
 def create_gui():
-    root = TkinterDnD.Tk()
-    root.title("PDF Stempel Tool – Drag & Drop")
-
-    label = tk.Label(root, text="Ziehe deine PDFs hierher", font=("Helvetica", 16))
-    label.pack(padx=20, pady=40)
-
-    root.drop_target_register(DND_FILES)
-    root.dnd_bind('<<Drop>>', on_drop)
-
+    global root, status_label
+    
+    root = tk.Tk()
+    root.title("PDF Stempel Tool")
     root.geometry("400x200")
+    
+    frame = tk.Frame(root, padx=20, pady=20)
+    frame.pack(expand=True, fill="both")
+    
+    title_label = tk.Label(frame, text="PDF Stempel Tool", font=("Helvetica", 16, "bold"))
+    title_label.pack(pady=(0, 20))
+    
+    browse_button = tk.Button(frame, text="PDFs auswählen", command=browse_files, font=("Helvetica", 12))
+    browse_button.pack(pady=10)
+    
+    status_label = tk.Label(frame, text="Bereit", font=("Helvetica", 10))
+    status_label.pack(pady=10)
+    
+    info_label = tk.Label(frame, text="Wähle PDF-Dateien aus, um sie mit dem Dateinamen zu stempeln", font=("Helvetica", 9))
+    info_label.pack(pady=(20, 0))
+    
     root.mainloop()
 
-if __name__ == "__main__":
+def main():
     create_gui()
+
+if __name__ == "__main__":
+    main()
