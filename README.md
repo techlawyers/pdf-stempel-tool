@@ -71,7 +71,7 @@ Verteile **den gesamten Ordner**, nicht nur die `.exe`.
 
 ---
 
-## 📦 Bereitstellung an Kolleg:innen
+## 📦 Bereitstellung
 
 1. Den Ordner `stempel_tool` z. B. auf den Desktop kopieren
 2. `stempel_tool.exe` per Doppelklick starten
