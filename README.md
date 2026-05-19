@@ -1,47 +1,64 @@
+# PDF Stempel Tool
 
-# 🖋️ PDF Stempel Tool
+Ein kleines Windows-Tool fuer die Kanzlei, das PDF-Dateien automatisch mit dem Dateinamen stempelt. Der Stempel wird oben rechts auf die erste Seite gesetzt.
 
-Ein einfaches Python-Tool mit Drag & Drop-Fenster, das automatisch einen Stempel mit dem Dateinamen auf die erste Seite von PDF-Dateien setzt.
+## Funktionen
 
----
+- PDFs per Doppelklick im Fenster auswaehlen
+- PDFs per Drag & Drop ins Fenster ziehen
+- PDFs direkt auf die EXE oder eine Verknuepfung ziehen
+- Unterstriche im Dateinamen werden im Stempel durch Leerzeichen ersetzt
+- Hoch- und Querformat werden anhand der ersten PDF-Seite beruecksichtigt
+- Ausgabedateien landen im Ordner `stamped_pdfs` neben der EXE
+- Bestehende Dateien werden nicht ueberschrieben; neue Dateien erhalten z.B. `Dokument (2).pdf`
+- Fehlerhafte oder nicht lesbare PDFs brechen die Verarbeitung anderer Dateien nicht ab
 
-## 🔧 Funktionen
+## Nutzung fuer Mitarbeiter
 
-- PDF-Dateien per Drag & Drop ins Fenster ziehen
-- Stempel des Dateinamens oben rechts auf der ersten Seite
-- Erkennt automatisch Hoch- und Querformat
-- Unterstriche im Dateinamen werden durch Leerzeichen ersetzt
-- Ausgabedateien werden in `stamped_pdfs` gespeichert
+### Variante 1: Dateien auf das Symbol ziehen
 
----
+1. PDF-Dateien im Explorer markieren.
+2. Die Dateien auf `stempel_tool.exe` oder eine Verknuepfung zur App ziehen.
+3. Nach der Verarbeitung erscheint ein kurzer Ergebnisdialog.
+4. Die gestempelten PDFs liegen im Ordner `stamped_pdfs` neben der EXE.
 
-## ▶️ Verwendung mit Python (für Entwickler)
+### Variante 2: App per Doppelklick starten
+
+1. `stempel_tool.exe` per Doppelklick starten.
+2. PDFs ins Fenster ziehen oder ueber `PDFs auswaehlen` auswaehlen.
+3. Nach der Verarbeitung erscheint ein kurzer Ergebnisdialog.
+4. Die gestempelten PDFs liegen im Ordner `stamped_pdfs` neben der EXE.
+
+## Verwendung mit Python fuer Entwickler
 
 ### Voraussetzungen
 
 - Python 3.11 oder neuer
-- pip (Python-Paketmanager)
+- pip
 
 ### Installation
 
-1. Repository klonen oder ZIP herunterladen
-2. Abhängigkeiten installieren:
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Start
 
-3. Tool starten:
+GUI starten:
 
-   ```bash
-   python stempel_tool.py
-   ```
+```bash
+python stempel_tool.py
+```
 
----
+Icon-Drop/CLI-Verarbeitung simulieren:
 
-## 🪟 Erstellung einer Windows `.exe`
+```bash
+python stempel_tool.py "C:\Pfad\zu\Dokument.pdf"
+```
 
-Um das Tool als eigenständige Windows-Anwendung weiterzugeben:
+## Windows-EXE erstellen
+
+Die Kanzlei-Version wird als PyInstaller-Ordner gebaut. Verwende bewusst nicht `--onefile`, weil Drag & Drop und Antivirenpruefungen mit einem entpackten App-Ordner erfahrungsgemaess robuster sind.
 
 ### 1. PyInstaller installieren
 
@@ -49,31 +66,32 @@ Um das Tool als eigenständige Windows-Anwendung weiterzugeben:
 pip install pyinstaller
 ```
 
-### 2. `.exe` erzeugen (mit Icon, ohne Konsole)
+### 2. Build ausfuehren
 
 ```bash
-py -m PyInstaller --noconsole --icon=stempel_icon.ico stempel_tool.py
+py -m PyInstaller --noconsole --onedir --name stempel_tool --icon=stempel_icon.ico stempel_tool.py
 ```
 
-> Hinweis: Verwende **nicht `--onefile`**, da Drag & Drop damit oft Probleme macht.
+Alternativ kann unter Windows das Build-Skript verwendet werden:
 
-### 3. Ergebnis
-
-Die ausführbare Datei und alle benötigten Komponenten befinden sich im Ordner:
-
+```powershell
+.\build_windows.ps1
 ```
+
+### 3. Ergebnis verteilen
+
+Die Anwendung liegt danach hier:
+
+```text
 dist/stempel_tool/
-├─ stempel_tool.exe       ← Diese Datei ausführen
-├─ ... (weitere Dateien)
+├─ stempel_tool.exe
+├─ ... weitere Dateien
 ```
 
-Verteile **den gesamten Ordner**, nicht nur die `.exe`.
+Verteile immer den gesamten Ordner `dist/stempel_tool`, z.B. als ZIP-Datei oder kopierten Ordner. Nicht nur die einzelne EXE weitergeben.
 
----
+## Hinweise
 
-## 📦 Bereitstellung
-
-1. Den Ordner `stempel_tool` z. B. auf den Desktop kopieren
-2. `stempel_tool.exe` per Doppelklick starten
-3. PDF-Dateien ins Fenster ziehen
-4. Gestempelte PDFs erscheinen im Ordner `stamped_pdfs`
+- Der Ordner mit der EXE muss beschreibbar sein, weil dort `stamped_pdfs` angelegt wird.
+- Wenn eine PDF nicht gelesen werden kann, wird sie im Ergebnisdialog als Fehler angezeigt.
+- Nicht-PDF-Dateien werden uebersprungen.
