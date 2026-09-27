@@ -1,97 +1,45 @@
-# PDF Stempel Tool
+# PDF-Stempel
 
-Ein kleines Windows-Tool fuer die Kanzlei, das PDF-Dateien automatisch mit dem Dateinamen stempelt. Der Stempel wird oben rechts auf die erste Seite gesetzt.
+Ein portables Windows-Programm, das den Dateinamen oben rechts auf die erste Seite einer PDF setzt. Es wird als einzelne EXE verteilt und benötigt auf den Arbeitsplätzen keine Python-Installation.
 
-## Funktionen
+Die Oberfläche hat eine feste Größe von 600 × 420 Pixeln.
 
-- PDFs per Doppelklick im Fenster auswaehlen
-- PDFs per Drag & Drop ins Fenster ziehen
-- PDFs direkt auf die EXE oder eine Verknuepfung ziehen
-- Unterstriche im Dateinamen werden im Stempel durch Leerzeichen ersetzt
-- Hoch- und Querformat werden anhand der ersten PDF-Seite beruecksichtigt
-- Ausgabedateien landen im Ordner `stamped_pdfs` neben der EXE
-- Bestehende Dateien werden nicht ueberschrieben; neue Dateien erhalten z.B. `Dokument (2).pdf`
-- Fehlerhafte oder nicht lesbare PDFs brechen die Verarbeitung anderer Dateien nicht ab
+## Verwendung
 
-## Nutzung fuer Mitarbeiter
+1. `PDF-Stempel.exe` starten.
+2. PDF-Dateien in die Ablagefläche ziehen oder über **Datei auswählen** öffnen.
+3. Die gestempelte Kopie liegt neben der Originaldatei und erhält den Zusatz `_gestempelt` im Dateinamen.
 
-### Variante 1: Dateien auf das Symbol ziehen
-
-1. PDF-Dateien im Explorer markieren.
-2. Die Dateien auf `stempel_tool.exe` oder eine Verknuepfung zur App ziehen.
-3. Nach der Verarbeitung erscheint ein kurzer Ergebnisdialog.
-4. Die gestempelten PDFs liegen im Ordner `stamped_pdfs` neben der EXE.
-
-### Variante 2: App per Doppelklick starten
-
-1. `stempel_tool.exe` per Doppelklick starten.
-2. PDFs ins Fenster ziehen oder ueber `PDFs auswaehlen` auswaehlen.
-3. Nach der Verarbeitung erscheint ein kurzer Ergebnisdialog.
-4. Die gestempelten PDFs liegen im Ordner `stamped_pdfs` neben der EXE.
-
-## Verwendung mit Python fuer Entwickler
-
-### Voraussetzungen
-
-- Python 3.11 oder neuer
-- pip
-
-### Installation
-
-```bash
-pip install -r requirements.txt
-```
-
-### Start
-
-GUI starten:
-
-```bash
-python stempel_tool.py
-```
-
-Icon-Drop/CLI-Verarbeitung simulieren:
-
-```bash
-python stempel_tool.py "C:\Pfad\zu\Dokument.pdf"
-```
+Originaldateien werden nicht verändert. Vorhandene gestempelte Kopien werden nicht überschrieben; weitere Kopien erhalten einen Zähler im Dateinamen. Nicht-PDF-Dateien werden übersprungen. Fehler bei einer Datei verhindern die Verarbeitung der übrigen Dateien nicht.
 
 ## Windows-EXE erstellen
 
-Die Kanzlei-Version wird als PyInstaller-Ordner gebaut. Verwende bewusst nicht `--onefile`, weil Drag & Drop und Antivirenpruefungen mit einem entpackten App-Ordner erfahrungsgemaess robuster sind.
+Voraussetzungen für den Build-Rechner:
 
-### 1. PyInstaller installieren
+- Python 3.11 oder neuer
+- pip
+- PyInstaller
 
-```bash
-pip install pyinstaller
-```
-
-### 2. Build ausfuehren
-
-```bash
-py -m PyInstaller --noconsole --onedir --name stempel_tool --icon=stempel_icon.ico stempel_tool.py
-```
-
-Alternativ kann unter Windows das Build-Skript verwendet werden:
+Abhängigkeiten installieren und die EXE erstellen:
 
 ```powershell
+pip install -r requirements.txt
+py -m pip install pyinstaller
 .\build_windows.ps1
 ```
 
-### 3. Ergebnis verteilen
-
-Die Anwendung liegt danach hier:
+Die fertige Einzeldatei liegt hier:
 
 ```text
-dist/stempel_tool/
-├─ stempel_tool.exe
-├─ ... weitere Dateien
+dist/PDF-Stempel.exe
 ```
 
-Verteile immer den gesamten Ordner `dist/stempel_tool`, z.B. als ZIP-Datei oder kopierten Ordner. Nicht nur die einzelne EXE weitergeben.
+Die EXE ist für Windows x64 gebaut. Für andere Betriebssysteme oder Prozessorarchitekturen ist ein eigener Build erforderlich.
 
-## Hinweise
+## PDF-Verarbeitung testen
 
-- Der Ordner mit der EXE muss beschreibbar sein, weil dort `stamped_pdfs` angelegt wird.
-- Wenn eine PDF nicht gelesen werden kann, wird sie im Ergebnisdialog als Fehler angezeigt.
-- Nicht-PDF-Dateien werden uebersprungen.
+Die Tests erzeugen ausschließlich temporäre Beispieldateien. Sie prüfen Hoch- und Querformat in einem mehrseitigen PDF, Drehungen um 90, 180 und 270 Grad, den Stempel auf der ersten Seite, den Ausgabeordner, Namenskollisionen und den Erhalt der Originaldatei. Außerdem wird ein späterer Austausch am selben Pfad an einer Wegwerfdatei erprobt.
+
+```powershell
+py -m unittest discover -s tests -v
+```

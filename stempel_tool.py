@@ -5,19 +5,26 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+from PIL import Image, ImageTk
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
-
-try:
-    from tkinterdnd2 import DND_FILES, TkinterDnD
-except ImportError:
-    DND_FILES = None
-    TkinterDnD = None
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 
 STAMP_FONT = "Helvetica-Bold"
 STAMP_FONT_SIZE = 14
-OUTPUT_FOLDER_NAME = "stamped_pdfs"
+STAMPED_SUFFIX = "_gestempelt"
+UI_BACKGROUND = "#F4F6FA"
+UI_SURFACE = "#FFFFFF"
+UI_TEXT = "#172A45"
+UI_BORDER = "#DCE4EF"
+UI_BLUE = "#1769E0"
+UI_BLUE_HOVER = "#0F55C4"
+
+
+def resource_path(file_name: str) -> Path:
+    app_folder = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return app_folder / file_name
 
 
 @dataclass
@@ -26,16 +33,6 @@ class FileResult:
     output: Path | None = None
     status: str = "processed"
     message: str = ""
-
-
-def get_app_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent
-
-
-def get_output_folder() -> Path:
-    return get_app_base_dir() / OUTPUT_FOLDER_NAME
 
 
 def create_unique_output_path(output_folder: Path, file_name: str) -> Path:
@@ -55,60 +52,58 @@ def create_unique_output_path(output_folder: Path, file_name: str) -> Path:
 
 def create_stamp(text: str, page_width: float, page_height: float) -> PdfReader:
     packet = BytesIO()
-    can = canvas.Canvas(packet, pagesize=(page_width, page_height))
-    can.setFont(STAMP_FONT, STAMP_FONT_SIZE)
+    pdf_canvas = canvas.Canvas(packet, pagesize=(page_width, page_height))
+    pdf_canvas.setFont(STAMP_FONT, STAMP_FONT_SIZE)
 
-    text = text.replace("_", " ")
-    text_width = can.stringWidth(text, STAMP_FONT, STAMP_FONT_SIZE)
+    stamp_text = text.replace("_", " ")
+    text_width = pdf_canvas.stringWidth(stamp_text, STAMP_FONT, STAMP_FONT_SIZE)
     x_pos = page_width - text_width - 40
     y_pos = page_height - 40
 
-    can.drawString(x_pos, y_pos, text)
-    can.save()
+    pdf_canvas.drawString(x_pos, y_pos, stamp_text)
+    pdf_canvas.save()
     packet.seek(0)
     return PdfReader(packet)
 
 
-def process_pdf(file_path: Path, output_folder: Path) -> Path:
+def process_pdf(file_path: Path) -> Path:
     reader = PdfReader(str(file_path))
 
     if reader.is_encrypted:
         try:
             decrypt_result = reader.decrypt("")
         except Exception as exc:
-            raise ValueError("PDF ist verschluesselt und konnte nicht geoeffnet werden.") from exc
+            raise ValueError("PDF ist verschlüsselt und konnte nicht geöffnet werden.") from exc
         if decrypt_result == 0:
-            raise ValueError("PDF ist verschluesselt und konnte nicht geoeffnet werden.")
+            raise ValueError("PDF ist verschlüsselt und konnte nicht geöffnet werden.")
 
     if len(reader.pages) == 0:
-        raise ValueError("PDF enthaelt keine Seiten.")
+        raise ValueError("PDF enthält keine Seiten.")
 
-    writer = PdfWriter()
     first_page = reader.pages[0]
     if first_page.rotation:
         first_page.transfer_rotation_to_content()
 
     page_width = float(first_page.mediabox.width)
     page_height = float(first_page.mediabox.height)
+    stamp_page = create_stamp(file_path.stem, page_width, page_height).pages[0]
 
-    stamp_pdf = create_stamp(file_path.stem, page_width, page_height)
-    stamp_page = stamp_pdf.pages[0]
-
+    writer = PdfWriter()
     for index, page in enumerate(reader.pages):
         if index == 0:
             page.merge_page(stamp_page)
         writer.add_page(page)
 
-    output_folder.mkdir(parents=True, exist_ok=True)
-    output_path = create_unique_output_path(output_folder, file_path.name)
+    output_folder = file_path.parent
+    stamped_name = f"{file_path.stem}{STAMPED_SUFFIX}{file_path.suffix}"
+    output_path = create_unique_output_path(output_folder, stamped_name)
     with output_path.open("wb") as output_file:
         writer.write(output_file)
 
     return output_path
 
 
-def process_files(files) -> list[FileResult]:
-    output_folder = get_output_folder()
+def process_files(files: list[str | Path]) -> list[FileResult]:
     results: list[FileResult] = []
 
     for raw_file in files:
@@ -127,7 +122,7 @@ def process_files(files) -> list[FileResult]:
             continue
 
         try:
-            output_path = process_pdf(file_path, output_folder)
+            output_path = process_pdf(file_path)
         except Exception as exc:
             results.append(FileResult(file_path, status="failed", message=str(exc)))
         else:
@@ -136,26 +131,24 @@ def process_files(files) -> list[FileResult]:
     return results
 
 
+def split_drop_files(tk_interpreter, drop_data: str) -> list[str]:
+    return list(tk_interpreter.splitlist(drop_data))
+
+
 def summarize_results(results: list[FileResult]) -> tuple[str, str]:
     processed = [result for result in results if result.status == "processed"]
-    skipped = [result for result in results if result.status == "skipped"]
     failed = [result for result in results if result.status == "failed"]
 
-    title = "Fertig" if not failed else "Verarbeitung abgeschlossen"
-    lines = [
-        f"Erfolgreich gestempelt: {len(processed)}",
-        f"Uebersprungen: {len(skipped)}",
-        f"Fehlgeschlagen: {len(failed)}",
-        f"Zielordner: {get_output_folder()}",
-    ]
-
-    if skipped or failed:
-        lines.append("")
-        lines.append("Details:")
-        for result in skipped + failed:
-            lines.append(f"- {result.source.name}: {result.message}")
-
-    return title, "\n".join(lines)
+    if failed:
+        details = "\n".join(
+            f"{result.source.name}: {result.message}" for result in failed
+        )
+        if processed:
+            details = f"{len(processed)} PDF(s) gestempelt.\n\n{details}"
+        return "PDF-Stempel", details
+    if processed:
+        return "PDF-Stempel", f"{len(processed)} PDF(s) gestempelt."
+    return "PDF-Stempel", "Keine PDF-Datei erkannt."
 
 
 def show_results(results: list[FileResult], parent=None) -> None:
@@ -163,120 +156,111 @@ def show_results(results: list[FileResult], parent=None) -> None:
     has_failures = any(result.status == "failed" for result in results)
     if has_failures:
         messagebox.showwarning(title, message, parent=parent)
-    else:
-        messagebox.showinfo(title, message, parent=parent)
 
 
-def parse_drop_data(root, data: str) -> tuple[str, ...]:
-    return tuple(root.tk.splitlist(data))
+def process_and_report(files: list[str | Path], root) -> None:
+    results = process_files(files)
+    failed = any(result.status == "failed" for result in results)
+
+    if failed:
+        show_results(results, parent=root)
 
 
-def browse_files(root, status_label) -> None:
+def browse_files(root) -> None:
     files = filedialog.askopenfilenames(
-        title="PDFs auswaehlen",
-        filetypes=[("PDF Dateien", "*.pdf"), ("Alle Dateien", "*.*")],
+        title="PDF-Dateien auswählen",
+        filetypes=[("PDF-Dateien", "*.pdf"), ("Alle Dateien", "*.*")],
         parent=root,
     )
-
-    if not files:
-        return
-
-    status_label.config(text="Verarbeite Dateien...")
-    root.update_idletasks()
-
-    results = process_files(files)
-    show_results(results, parent=root)
-
-    processed_count = sum(1 for result in results if result.status == "processed")
-    failed_count = sum(1 for result in results if result.status == "failed")
-    status_label.config(
-        text=f"{processed_count} gestempelt, {failed_count} fehlgeschlagen"
-    )
-
-
-def handle_drop(root, status_label, event) -> None:
-    files = parse_drop_data(root, event.data)
-    if not files:
-        return
-
-    status_label.config(text="Verarbeite Dateien...")
-    root.update_idletasks()
-
-    results = process_files(files)
-    show_results(results, parent=root)
-
-    processed_count = sum(1 for result in results if result.status == "processed")
-    failed_count = sum(1 for result in results if result.status == "failed")
-    status_label.config(
-        text=f"{processed_count} gestempelt, {failed_count} fehlgeschlagen"
-    )
+    if files:
+        process_and_report(list(files), root)
 
 
 def create_gui() -> None:
-    if TkinterDnD is not None:
-        root = TkinterDnD.Tk()
-    else:
-        root = tk.Tk()
+    root = TkinterDnD.Tk()
+    root.title("PDF-Stempel")
+    root.geometry("600x420")
+    root.resizable(False, False)
+    root.configure(bg=UI_BACKGROUND)
+    root.iconbitmap(str(resource_path("stempel_icon.ico")))
 
-    root.title("PDF Stempel Tool")
-    root.geometry("460x280")
-    root.minsize(420, 250)
+    drop_zone = tk.Frame(
+        root,
+        bg=UI_SURFACE,
+        highlightbackground=UI_BORDER,
+        highlightthickness=1,
+        bd=0,
+    )
+    drop_zone.pack(expand=True, fill="both", padx=30, pady=28)
 
-    frame = tk.Frame(root, padx=24, pady=24)
-    frame.pack(expand=True, fill="both")
+    center = tk.Frame(drop_zone, bg=UI_SURFACE)
+    center.pack(expand=True)
 
-    title_label = tk.Label(frame, text="PDF Stempel Tool", font=("Helvetica", 16, "bold"))
-    title_label.pack(pady=(0, 16))
+    with Image.open(resource_path("stempel_icon.ico")) as icon_source:
+        logo = ImageTk.PhotoImage(
+            icon_source.resize((104, 104), Image.Resampling.LANCZOS), master=root
+        )
+    root.logo_image = logo
 
-    drop_text = "PDFs hier ablegen oder ueber den Button auswaehlen"
-    if TkinterDnD is None:
-        drop_text = "PDFs ueber den Button auswaehlen"
-
+    logo_label = tk.Label(center, image=logo, bg=UI_SURFACE, bd=0)
+    logo_label.pack(pady=(0, 8))
     drop_label = tk.Label(
-        frame,
-        text=drop_text,
-        relief="groove",
-        borderwidth=2,
-        width=48,
-        height=4,
-        font=("Helvetica", 10),
+        center,
+        text="PDF hier ablegen",
+        font=("Segoe UI", 14, "bold"),
+        fg=UI_TEXT,
+        bg=UI_SURFACE,
     )
-    drop_label.pack(fill="x", pady=(0, 14))
-
-    browse_button = tk.Button(
-        frame,
-        text="PDFs auswaehlen",
-        command=lambda: browse_files(root, status_label),
-        font=("Helvetica", 12),
+    drop_label.pack()
+    choose_button = tk.Button(
+        center,
+        text="Datei auswählen",
+        font=("Segoe UI", 10, "bold"),
+        fg="#FFFFFF",
+        bg=UI_BLUE,
+        activeforeground="#FFFFFF",
+        activebackground=UI_BLUE_HOVER,
+        relief="flat",
+        borderwidth=0,
+        padx=20,
+        pady=10,
+        cursor="hand2",
+        command=lambda: browse_files(root),
     )
-    browse_button.pack(pady=8)
+    choose_button.pack(pady=(20, 0))
 
-    status_label = tk.Label(frame, text="Bereit", font=("Helvetica", 10))
-    status_label.pack(pady=8)
+    def set_drop_highlight(active: bool) -> None:
+        drop_zone.configure(
+            highlightbackground=UI_BLUE if active else UI_BORDER,
+            highlightthickness=2 if active else 1,
+        )
 
-    info_label = tk.Label(
-        frame,
-        text=f"Ausgabeordner: {get_output_folder()}",
-        font=("Helvetica", 9),
-        wraplength=390,
-        justify="center",
-    )
-    info_label.pack(pady=(10, 0))
+    def on_drop(event):
+        files = split_drop_files(root.tk, event.data)
+        if files:
+            process_and_report(list(files), root)
+        set_drop_highlight(False)
+        return "break"
 
-    if TkinterDnD is not None:
-        drop_label.drop_target_register(DND_FILES)
-        drop_label.dnd_bind("<<Drop>>", lambda event: handle_drop(root, status_label, event))
-        root.drop_target_register(DND_FILES)
-        root.dnd_bind("<<Drop>>", lambda event: handle_drop(root, status_label, event))
+    def on_drag_enter(_event):
+        set_drop_highlight(True)
+
+    def on_drag_leave(_event):
+        set_drop_highlight(False)
+
+    for widget in (root, drop_zone, center, logo_label, drop_label, choose_button):
+        widget.drop_target_register(DND_FILES)
+        widget.dnd_bind("<<Drop>>", on_drop)
+        widget.dnd_bind("<<DragEnter>>", on_drag_enter)
+        widget.dnd_bind("<<DragLeave>>", on_drag_leave)
 
     root.mainloop()
 
 
 def run_cli(files: list[str]) -> None:
-    results = process_files(files)
     root = tk.Tk()
     root.withdraw()
-    show_results(results, parent=root)
+    show_results(process_files(files), parent=root)
     root.destroy()
 
 
