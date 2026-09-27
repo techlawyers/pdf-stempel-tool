@@ -1,79 +1,45 @@
+# PDF-Stempel
 
-# 🖋️ PDF Stempel Tool
+Ein portables Windows-Programm, das den Dateinamen oben rechts auf die erste Seite einer PDF setzt. Es wird als einzelne EXE verteilt und benötigt auf den Arbeitsplätzen keine Python-Installation.
 
-Ein einfaches Python-Tool mit Drag & Drop-Fenster, das automatisch einen Stempel mit dem Dateinamen auf die erste Seite von PDF-Dateien setzt.
+Die Oberfläche hat eine feste Größe von 600 × 420 Pixeln.
 
----
+## Verwendung
 
-## 🔧 Funktionen
+1. `PDF-Stempel.exe` starten.
+2. PDF-Dateien in die Ablagefläche ziehen oder über **Datei auswählen** öffnen.
+3. Die gestempelte Kopie liegt neben der Originaldatei und erhält den Zusatz `_gestempelt` im Dateinamen.
 
-- PDF-Dateien per Drag & Drop ins Fenster ziehen
-- Stempel des Dateinamens oben rechts auf der ersten Seite
-- Erkennt automatisch Hoch- und Querformat
-- Unterstriche im Dateinamen werden durch Leerzeichen ersetzt
-- Ausgabedateien werden in `stamped_pdfs` gespeichert
+Originaldateien werden nicht verändert. Vorhandene gestempelte Kopien werden nicht überschrieben; weitere Kopien erhalten einen Zähler im Dateinamen. Nicht-PDF-Dateien werden übersprungen. Fehler bei einer Datei verhindern die Verarbeitung der übrigen Dateien nicht.
 
----
+## Windows-EXE erstellen
 
-## ▶️ Verwendung mit Python (für Entwickler)
-
-### Voraussetzungen
+Voraussetzungen für den Build-Rechner:
 
 - Python 3.11 oder neuer
-- pip (Python-Paketmanager)
+- pip
+- PyInstaller
 
-### Installation
+Abhängigkeiten installieren und die EXE erstellen:
 
-1. Repository klonen oder ZIP herunterladen
-2. Abhängigkeiten installieren:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Tool starten:
-
-   ```bash
-   python stempel_tool.py
-   ```
-
----
-
-## 🪟 Erstellung einer Windows `.exe`
-
-Um das Tool als eigenständige Windows-Anwendung weiterzugeben:
-
-### 1. PyInstaller installieren
-
-```bash
-pip install pyinstaller
+```powershell
+pip install -r requirements.txt
+py -m pip install pyinstaller
+.\build_windows.ps1
 ```
 
-### 2. `.exe` erzeugen (mit Icon, ohne Konsole)
+Die fertige Einzeldatei liegt hier:
 
-```bash
-py -m PyInstaller --noconsole --icon=stempel_icon.ico stempel_tool.py
+```text
+dist/PDF-Stempel.exe
 ```
 
-> Hinweis: Verwende **nicht `--onefile`**, da Drag & Drop damit oft Probleme macht.
+Die EXE ist für Windows x64 gebaut. Für andere Betriebssysteme oder Prozessorarchitekturen ist ein eigener Build erforderlich.
 
-### 3. Ergebnis
+## PDF-Verarbeitung testen
 
-Die ausführbare Datei und alle benötigten Komponenten befinden sich im Ordner:
+Die Tests erzeugen ausschließlich temporäre Beispieldateien. Sie prüfen Hoch- und Querformat in einem mehrseitigen PDF, Drehungen um 90, 180 und 270 Grad, den Stempel auf der ersten Seite, den Ausgabeordner, Namenskollisionen und den Erhalt der Originaldatei. Außerdem wird ein späterer Austausch am selben Pfad an einer Wegwerfdatei erprobt.
 
+```powershell
+py -m unittest discover -s tests -v
 ```
-dist/stempel_tool/
-├─ stempel_tool.exe       ← Diese Datei ausführen
-├─ ... (weitere Dateien)
-```
-
-Verteile **den gesamten Ordner**, nicht nur die `.exe`.
-
----
-
-## 📦 Bereitstellung
-
-1. Den Ordner `stempel_tool` z. B. auf den Desktop kopieren
-2. `stempel_tool.exe` per Doppelklick starten
-3. PDF-Dateien ins Fenster ziehen
-4. Gestempelte PDFs erscheinen im Ordner `stamped_pdfs`
